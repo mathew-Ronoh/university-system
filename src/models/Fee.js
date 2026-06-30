@@ -1,3 +1,7 @@
+// Fee model — tracks what a student owes for a specific semester
+// totalFees is the full semester cost, paidAmount tracks what's been paid,
+// balance = totalFees - paidAmount, and status changes automatically
+
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -16,7 +20,7 @@ Fee.init(
       field: 'semester_id',
     },
     totalFees: {
-      type: DataTypes.DECIMAL(12, 2),
+      type: DataTypes.DECIMAL(12, 2),  // Up to 99,999,999,999.99 — handles KES amounts safely
       allowNull: false,
       field: 'total_fees',
     },

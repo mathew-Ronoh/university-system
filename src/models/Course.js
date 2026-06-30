@@ -1,3 +1,7 @@
+// Course model — represents a degree program (e.g., BSC-CS, BBA)
+// Each course has a fee (per semester), belongs to a department,
+// and can optionally have a course coordinator (lecturerId)
+
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -8,11 +12,11 @@ Course.init(
     code: {
       type: DataTypes.STRING(20),
       allowNull: false,
-      unique: true,
+      unique: true,         // e.g., "BSC-CS", "BBA" — human-readable identifier
     },
     name: {
       type: DataTypes.STRING(200),
-      allowNull: false,
+      allowNull: false,     // Full name: "Bachelor of Computer Science"
     },
     credits: {
       type: DataTypes.INTEGER,

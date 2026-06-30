@@ -1,3 +1,10 @@
+// Request validation middleware using Joi schemas
+// validate(schema): validates req.body against the given Joi schema
+// validateQuery(schema): validates req.query against a schema, sanitizes it
+//
+// On failure, returns 400 with a structured list of field-level errors
+// On success, strips unknown fields (stripUnknown: true) and passes to next handler
+
 const validate = (schema) => {
   return (req, res, next) => {
     const { error } = schema.validate(req.body, { abortEarly: false, stripUnknown: true });
@@ -22,7 +29,7 @@ const validateQuery = (schema) => {
       }));
       return res.status(400).json({ error: 'Validation failed', details });
     }
-    req.query = value;
+    req.query = value; // Replace with sanitized values
     next();
   };
 };

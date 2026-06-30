@@ -1,0 +1,1177 @@
+{
+  "info": {
+    "name": "University Management System",
+    "description": "Complete API collection for the University Management System. All 55+ endpoints organized by role.\n\n## Setup\n1. Import this collection into Yaak (File → Import → Postman)\n2. Create environment variables:\n   - `baseUrl`: `http://localhost:3000/api`\n   - `accessToken`: (set after login)\n   - `refreshToken`: (set after login)\n3. Start with the Auth → Login request to get tokens\n\n## Flow\n1. **Auth** → Login as admin → get tokens\n2. **Admin** → Create users, courses, units, semesters, enroll students\n3. **Student** → View profile, units, fees, transcript\n4. **Lecturer** → View courses, enter results\n5. **Finance** → Manage fees, payments, invoices, salaries\n6. **Errors** → Test validation, auth, and RBAC error handling",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints. Login to receive JWT tokens, then use them for all other requests.",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.accessToken) {",
+                  "  pm.environment.set('accessToken', jsonData.accessToken);",
+                  "  pm.environment.set('refreshToken', jsonData.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@university.ac.ke\",\n  \"password\": \"Admin@123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login as admin. Response includes user, accessToken, and refreshToken.\n\n**Source:** `src/controllers/authController.js` → `login()`\n- Validates email/password via `authService.login()`\n- Returns JWT access token (30min) + refresh token (7 days)\n- Creates audit log entry\n\n**Middleware:** `validate(loginSchema)` from `src/validators/authValidator.js`"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Get a new access token using the refresh token.\n\n**Source:** `src/services/authService.js` → `refreshAccessToken()`\n- Verifies refresh token with JWT_REFRESH_SECRET\n- Issues a new access token"
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Get the currently authenticated user's profile.\n\n**Source:** `src/controllers/authController.js` → `me()`\n- Returns `req.user.toSafeObject()` (password excluded)\n- If role is `student`, also includes the student profile\n\n**Middleware:** `authenticate` → JWT verification"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout the current user. Creates an audit log entry.\n\n**Source:** `src/controllers/authController.js` → `logout()`\n- Records LOGOUT action in audit_logs table\n\n**Middleware:** `authenticate`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Administrator endpoints. All routes require `admin` role.\n\n**Middleware:** `authenticate` + `authorize(ROLES.ADMIN)`\n**Source:** `src/routes/admin.js`, `src/controllers/adminController.js`",
+      "item": [
+        {
+          "name": "Users",
+          "description": "User management CRUD",
+          "item": [
+            {
+              "name": "List Users",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/users",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "users"]
+                },
+                "description": "List all users with their roles.\n\n**Source:** `adminController.getUsers()`\n- Queries User.findAll() with all attributes"
+              }
+            },
+            {
+              "name": "Create Student User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"student1@university.ac.ke\",\n  \"password\": \"Student@123\",\n  \"role\": \"student\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phone\": \"+254700000001\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/users",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "users"]
+                },
+                "description": "Create a new student user.\n\n**Source:** `adminController.createUser()`\n- Validated by `createUserSchema` (Joi)\n- Password hashed via bcrypt (12 rounds) in User model `beforeCreate` hook\n- Creates audit log"
+              }
+            },
+            {
+              "name": "Create Lecturer User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"lecturer1@university.ac.ke\",\n  \"password\": \"Lecturer@123\",\n  \"role\": \"lecturer\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"phone\": \"+254700000002\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/users",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "users"]
+                },
+                "description": "Create a new lecturer user."
+              }
+            },
+            {
+              "name": "Create Finance User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"finance1@university.ac.ke\",\n  \"password\": \"Finance@123\",\n  \"role\": \"finance\",\n  \"firstName\": \"Alice\",\n  \"lastName\": \"Wanjiku\",\n  \"phone\": \"+254700000003\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/users",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "users"]
+                },
+                "description": "Create a new finance user."
+              }
+            },
+            {
+              "name": "Update User",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"John Updated\",\n  \"lastName\": \"Doe Updated\",\n  \"phone\": \"+254711111111\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/users/2",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "users", "2"]
+                },
+                "description": "Update a user's profile. Replace `:id` with actual user ID.\n\n**Source:** `adminController.updateUser()`\n- Validated by `updateUserSchema`\n- Creates audit log with old/new values"
+              }
+            },
+            {
+              "name": "Toggle User Active",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/users/2/toggle-active",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "users", "2", "toggle-active"]
+                },
+                "description": "Activate/deactivate a user. Deactivated users cannot log in.\n\n**Source:** `adminController.toggleUserActive()`\n- The `authenticate` middleware checks `isActive` and rejects inactive users"
+              }
+            },
+            {
+              "name": "Delete User",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/users/5",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "users", "5"]
+                },
+                "description": "Permanently delete a user. Replace `:id` with actual user ID.\n\n**Source:** `adminController.deleteUser()`\n- Creates audit log before deletion"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Courses",
+          "description": "Course management CRUD",
+          "item": [
+            {
+              "name": "List Courses",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/courses",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "courses"]
+                },
+                "description": "List all courses. 15 courses are pre-seeded.\n\n**Source:** `adminController.getCourses()`"
+              }
+            },
+            {
+              "name": "Create Course",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"BSC-DS\",\n  \"name\": \"Bachelor of Data Science\",\n  \"credits\": 120,\n  \"department\": \"Computing & Informatics\",\n  \"description\": \"A program focused on data science and analytics\",\n  \"fee\": 90000\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/courses",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "courses"]
+                },
+                "description": "Create a new course.\n\n**Source:** `adminController.createCourse()`\n- Validated by `courseSchema`"
+              }
+            },
+            {
+              "name": "Update Course",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Bachelor of Data Science & Analytics\",\n  \"fee\": 95000\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/courses/16",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "courses", "16"]
+                },
+                "description": "Update a course. Replace `:id` with actual course ID."
+              }
+            },
+            {
+              "name": "Delete Course",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/courses/16",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "courses", "16"]
+                },
+                "description": "Delete a course. Replace `:id` with actual course ID."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Semesters",
+          "description": "Semester management",
+          "item": [
+            {
+              "name": "List Semesters",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/semesters",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "semesters"]
+                },
+                "description": "List all semesters."
+              }
+            },
+            {
+              "name": "Create Semester",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Semester 1\",\n  \"academicYear\": \"2025/2026\",\n  \"startDate\": \"2026-01-13\",\n  \"endDate\": \"2026-05-16\",\n  \"isCurrent\": true\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/semesters",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "semesters"]
+                },
+                "description": "Create a new semester and mark it as current.\n\n**Source:** `adminController.createSemester()`\n- Validated by `semesterSchema`"
+              }
+            },
+            {
+              "name": "Update Semester",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Semester 1 Updated\",\n  \"isCurrent\": true\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/semesters/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "semesters", "1"]
+                },
+                "description": "Update a semester. Replace `:id` with actual semester ID."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Units",
+          "description": "Unit/subject management",
+          "item": [
+            {
+              "name": "List Units",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/units",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "units"]
+                },
+                "description": "List all units with their course, semester, and lecturer info."
+              }
+            },
+            {
+              "name": "Create Unit",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"CS101\",\n  \"name\": \"Introduction to Programming\",\n  \"credits\": 4,\n  \"courseId\": 1,\n  \"semesterId\": 1,\n  \"lecturerId\": 3\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/units",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "units"]
+                },
+                "description": "Create a new unit. Link it to a course, semester, and lecturer.\n\n**Source:** `adminController.createUnit()`\n- Validated by `unitSchema`\n- `courseId` references a course, `semesterId` a semester, `lecturerId` a lecturer user"
+              }
+            },
+            {
+              "name": "Update Unit",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Advanced Programming\",\n  \"credits\": 3\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/units/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "units", "1"]
+                },
+                "description": "Update a unit. Replace `:id` with actual unit ID."
+              }
+            },
+            {
+              "name": "Delete Unit",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/units/1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "units", "1"]
+                },
+                "description": "Delete a unit. Replace `:id` with actual unit ID."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assignments & Enrollment",
+          "description": "Assign lecturers to units/courses and enroll students",
+          "item": [
+            {
+              "name": "Assign Lecturer to Unit",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"lecturerId\": 3,\n  \"unitId\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/assign-lecturer",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "assign-lecturer"]
+                },
+                "description": "Assign a lecturer to teach a specific unit.\n\n**Source:** `adminController.assignLecturer()`\n- Updates the `lecturerId` field on the unit"
+              }
+            },
+            {
+              "name": "Assign Course Lecturer (Coordinator)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"lecturerId\": 3,\n  \"courseId\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/assign-course-lecturer",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "assign-course-lecturer"]
+                },
+                "description": "Assign a course coordinator (lecturer) for a course.\n\n**Source:** `adminController.assignCourseLecturer()`\n- Updates the `lecturerId` field on the course"
+              }
+            },
+            {
+              "name": "Enroll Student in Units",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"studentId\": 1,\n  \"unitIds\": [1, 2, 3],\n  \"semesterId\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/enroll-student",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "enroll-student"]
+                },
+                "description": "Enroll a student in one or more units for a semester.\n\n**Source:** `adminController.enrollStudent()`\n- Creates entries in `student_units` table\n- Validates the student exists and units belong to the correct course"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Audit Logs",
+          "description": "View system audit trail",
+          "item": [
+            {
+              "name": "Get Audit Logs",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/audit-logs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "audit-logs"]
+                },
+                "description": "View all audit log entries. Supports optional query params: `action`, `entityType`, `userId`.\n\n**Source:** `adminController.getAuditLogs()`\n- Queries `audit_logs` table with User association\n- Each log contains: action, entityType, oldValues (JSON), newValues (JSON), ipAddress, userAgent"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Salaries",
+          "description": "Admin salary management",
+          "item": [
+            {
+              "name": "List All Salaries",
+              "request": {
+                "method": "GET",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/salaries",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "salaries"]
+                },
+                "description": "List all salary records (admin/finance view)."
+              }
+            },
+            {
+              "name": "Create Salary",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"lecturerId\": 3,\n  \"amount\": 150000,\n  \"month\": 1,\n  \"year\": 2026\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/salaries",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "salaries"]
+                },
+                "description": "Create a salary record for a lecturer. Prevents duplicates per lecturer+month+year."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Student",
+      "description": "Student-facing endpoints. Requires `student` role.\n\n**Middleware:** `authenticate` + `authorize(ROLES.STUDENT)`\n**Source:** `src/routes/student.js`, `src/controllers/studentController.js`",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "profile"]
+            },
+            "description": "Get student profile with user details, course info, and current semester.\n\n**Source:** `studentController.getProfile()`\n- Fetches Student with User, Course, and currentSemester associations"
+          }
+        },
+        {
+          "name": "Get Current Units",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/current-units",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "current-units"]
+            },
+            "description": "Get units the student is currently enrolled in for the current semester.\n\n**Source:** `studentController.getCurrentUnits()`\n- Fetches student_units → units with lecturer and course info"
+          }
+        },
+        {
+          "name": "Get Current Semester",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/current-semester",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "current-semester"]
+            },
+            "description": "Get the current active semester."
+          }
+        },
+        {
+          "name": "Get Transcript",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/transcript",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "transcript"]
+            },
+            "description": "Get academic transcript with all results grouped by semester.\n\n**Source:** `studentController.getTranscript()`\n- Fetches all results with Unit and Semester associations\n- Groups by semester"
+          }
+        },
+        {
+          "name": "Download Transcript PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/transcript/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "transcript", "download"]
+            },
+            "description": "Download transcript as PDF.\n\n**Source:** `studentController.downloadTranscript()`\n- Uses PDFKit to generate a formatted PDF document"
+          }
+        },
+        {
+          "name": "Get Fees Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/fees/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "fees", "balance"]
+            },
+            "description": "Get fee records showing total fees, paid amount, and balance.\n\n**Source:** `studentController.getFeesBalance()`\n- Fetches Fee records with Semester associations"
+          }
+        },
+        {
+          "name": "Get Payment History",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/fees/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "fees", "payments"]
+            },
+            "description": "Get payment history (completed payments only).\n\n**Source:** `studentController.getPaymentHistory()`"
+          }
+        },
+        {
+          "name": "Get Receipts",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/fees/receipts",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "fees", "receipts"]
+            },
+            "description": "Get all receipts for the student."
+          }
+        },
+        {
+          "name": "Download Receipt PDF",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/fees/receipts/1/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "fees", "receipts", "1", "download"]
+            },
+            "description": "Download a specific receipt as PDF. Replace `:id` with receipt ID.\n\n**Source:** `studentController.downloadReceipt()`\n- Uses PDFKit to generate a formatted receipt PDF"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Lecturer",
+      "description": "Lecturer-facing endpoints. Requires `lecturer` role.\n\n**Middleware:** `authenticate` + `authorize(ROLES.LECTURER)`\n**Source:** `src/routes/lecturer.js`, `src/controllers/lecturerController.js`",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/lecturer/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["lecturer", "profile"]
+            },
+            "description": "Get lecturer's own profile.\n\n**Source:** `lecturerController.getProfile()`\n- Returns `req.user.toSafeObject()`"
+          }
+        },
+        {
+          "name": "Get My Courses (Units)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/lecturer/courses",
+              "host": ["{{baseUrl}}"],
+              "path": ["lecturer", "courses"]
+            },
+            "description": "Get all units assigned to this lecturer to teach.\n\n**Source:** `lecturerController.getMyCourses()`\n- Queries Unit where `lecturerId = req.userId`"
+          }
+        },
+        {
+          "name": "Get Course Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/lecturer/courses/1/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["lecturer", "courses", "1", "students"]
+            },
+            "description": "Get students enrolled in a specific unit. Replace `:id` with unit ID.\n\n**Source:** `lecturerController.getCourseStudents()`\n- Fetches student_units → Student → User"
+          }
+        },
+        {
+          "name": "Get Unit Results",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/lecturer/courses/1/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["lecturer", "courses", "1", "results"]
+            },
+            "description": "Get results for a specific unit. Replace `:id` with unit ID.\n\n**Source:** `lecturerController.getUnitResults()`\n- Fetches Result with Student associations"
+          }
+        },
+        {
+          "name": "Update Single Result",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": 1,\n  \"marks\": 85,\n  \"grade\": \"A\"\n}"
+                },
+            "url": {
+              "raw": "{{baseUrl}}/lecturer/courses/1/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["lecturer", "courses", "1", "results"]
+            },
+            "description": "Enter or update a single student's result.\n\n**Source:** `lecturerController.updateResults()`\n- Upserts a Result record (creates if not exists, updates if exists)\n- Validates student is enrolled in the unit first"
+          }
+        },
+        {
+          "name": "Bulk Update Results",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"results\": [\n    {\n      \"studentId\": 1,\n      \"marks\": 85,\n      \"grade\": \"A\"\n    },\n    {\n      \"studentId\": 2,\n      \"marks\": 72,\n      \"grade\": \"B+\"\n    }\n  ]\n}"
+                },
+            "url": {
+              "raw": "{{baseUrl}}/lecturer/courses/1/results/bulk",
+              "host": ["{{baseUrl}}"],
+              "path": ["lecturer", "courses", "1", "results", "bulk"]
+            },
+            "description": "Bulk upsert results for multiple students in a unit.\n\n**Source:** `lecturerController.updateResults()`\n- Processes each student in a loop with validation"
+          }
+        },
+        {
+          "name": "Get My Salary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/lecturer/salary",
+              "host": ["{{baseUrl}}"],
+              "path": ["lecturer", "salary"]
+            },
+            "description": "Get own salary history.\n\n**Source:** `salaryController.getMine()`\n- Filters salaries where `lecturerId = req.userId`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Finance",
+      "description": "Finance department endpoints. Requires `finance` role (except M-Pesa callback which uses optionalAuth).\n\n**Middleware:** `authenticate` + `authorize(ROLES.FINANCE)`\n**Source:** `src/routes/finance.js`, `src/controllers/financeController.js`",
+      "item": [
+        {
+          "name": "Get Student Fees",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/fees",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "fees"]
+            },
+            "description": "Get fee records for a specific student. Replace `:id` with student ID."
+          }
+        },
+        {
+          "name": "Update Student Fees",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"semesterId\": 1,\n  \"totalFees\": 85000,\n  \"dueDate\": \"2026-03-15\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/fees",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "fees"]
+            },
+            "description": "Create or update fee records for a student.\n\n**Source:** `financeController.updateStudentFees()`\n- Validated by `feeSchema`"
+          }
+        },
+        {
+          "name": "Record Manual Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"method\": \"bank_transfer\",\n  \"transactionCode\": \"BANK-REF-001\",\n  \"notes\": \"First installment payment\",\n  \"semesterId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/payments/manual",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "payments", "manual"]
+            },
+            "description": "Record a manual payment (cash, bank transfer, cheque).\n\n**Source:** `financeController.recordManualPayment()`\n- Uses a database TRANSACTION\n- Creates Payment record\n- Generates unique receipt number via uuid\n- Creates Receipt record\n- Updates Fee balance\n- Creates audit log"
+          }
+        },
+        {
+          "name": "Get Student Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "payments"]
+            },
+            "description": "Get all payments for a student."
+          }
+        },
+        {
+          "name": "Initiate M-Pesa STK Push",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"254700000000\",\n  \"amount\": 5000,\n  \"semesterId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/payments/mpesa-stk",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "payments", "mpesa-stk"]
+            },
+            "description": "Initiate an M-Pesa STK Push payment.\n\n**Source:** `financeController.initiateMpesaPayment()`\n- Calls `mpesaService.stkPush()` which posts to Safaricom Daraja API\n- Creates a pending payment record\n- (In sandbox mode, this will fail — real credentials needed)"
+          }
+        },
+        {
+          "name": "M-Pesa Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Body\": {\n    \"stkCallback\": {\n      \"MerchantRequestID\": \"test-id\",\n      \"CheckoutRequestID\": \"test-checkout\",\n      \"ResultCode\": 0,\n      \"ResultDesc\": \"The service request is processed successfully.\",\n      \"CallbackMetadata\": {\n        \"Item\": [\n          { \"Name\": \"Amount\", \"Value\": 5000 },\n          { \"Name\": \"MpesaReceiptNumber\", \"Value\": \"MPEATEST123\" },\n          { \"Name\": \"PhoneNumber\", \"Value\": 254700000000 }\n        ]\n      }\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/finance/payments/mpesa-callback",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "payments", "mpesa-callback"]
+            },
+            "description": "M-Pesa callback endpoint (called by Safaricom servers).\n\n**Source:** `financeController.mpesaCallback()`\n- Uses `optionalAuth` (works with or without token)\n- Processes the callback, updates payment status\n- On success: creates receipt, updates fee balance\n- On failure: marks payment as failed"
+          }
+        },
+        {
+          "name": "Get Student Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/invoices",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "invoices"]
+            },
+            "description": "Get all invoices for a student."
+          }
+        },
+        {
+          "name": "Create Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 85000,\n  \"dueDate\": \"2026-03-15\",\n  \"status\": \"issued\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/invoices",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "invoices"]
+            },
+            "description": "Create an invoice for a student.\n\n**Source:** `financeController.createInvoice()`\n- Validated by `invoiceSchema`\n- Generates unique invoice number"
+          }
+        },
+        {
+          "name": "Get Financial Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/finance/reports/student/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "reports", "student", "1"]
+            },
+            "description": "Get comprehensive financial report for a student.\n\n**Source:** `financeController.getFinancialReport()`\n- Aggregates fees, payments, and invoices"
+          }
+        },
+        {
+          "name": "Get HELB Loans",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/helb",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "helb"]
+            },
+            "description": "Get HELB loans for a student."
+          }
+        },
+        {
+          "name": "Create HELB Loan",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loanAmount\": 60000,\n  \"academicYear\": \"2025/2026\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/finance/students/1/helb",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "students", "1", "helb"]
+            },
+            "description": "Create a HELB loan record for a student."
+          }
+        },
+        {
+          "name": "Finance - List Salaries",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/finance/salaries",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "salaries"]
+            },
+            "description": "List all salary records (finance view)."
+          }
+        },
+        {
+          "name": "Finance - Mark Salary Paid",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/finance/salaries/1/mark-paid",
+              "host": ["{{baseUrl}}"],
+              "path": ["finance", "salaries", "1", "mark-paid"]
+            },
+            "description": "Mark a salary as paid. Replace `:id` with salary ID.\n\n**Source:** `salaryController.markPaid()`\n- Sets status to `paid`, records `paidAt` and `processedBy`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Testing",
+      "description": "Test error handling, validation failures, auth errors, and RBAC enforcement.",
+      "item": [
+        {
+          "name": "Wrong Password (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@university.ac.ke\",\n  \"password\": \"WRONG_PASSWORD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "**Expected:** 401\n\n**Response:** `{ \"error\": \"Invalid email or password.\" }`\n\n**Source:** `authService.login()` — compares password via bcrypt.compare()"
+          }
+        },
+        {
+          "name": "Missing Fields (400 Validation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@test.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "**Expected:** 400\n\n**Response:** `{ \"error\": \"Validation failed\", \"details\": [{ \"field\": \"password\", \"message\": \"...\" }] }`\n\n**Source:** `validate.js` middleware — Joi validation with abortEarly: false"
+          }
+        },
+        {
+          "name": "No Token (401)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"]
+            },
+            "description": "**Expected:** 401\n\n**Response:** `{ \"error\": \"No token provided.\" }`\n\n**Source:** `auth.js` middleware — checks `Authorization` header and `req.query.token`"
+          }
+        },
+        {
+          "name": "Wrong Role (403 RBAC)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/student/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "profile"]
+            },
+            "description": "**Important:** Run this while logged in with the ADMIN token (not a student token).\n\n**Expected:** 403\n\n**Response:** `{ \"error\": \"Forbidden\", \"requiredRole\": \"student\", \"yourRole\": \"admin\" }`\n\n**Source:** `rbac.js` middleware — checks `req.user.role` against allowed roles"
+          }
+        },
+        {
+          "name": "Route Not Found (404)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/nonexistent-route",
+              "host": ["{{baseUrl}}"],
+              "path": ["nonexistent-route"]
+            },
+            "description": "**Expected:** 404\n\n**Response:** `{ \"error\": \"Route not found.\" }`\n\n**Source:** `app.js` — 404 handler after all routes"
+          }
+        },
+        {
+          "name": "Duplicate Email (400 Sequelize)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@university.ac.ke\",\n  \"password\": \"Test@123\",\n  \"role\": \"student\",\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"]
+            },
+            "description": "**Expected:** 400\n\n**Response:** SequelizeUniqueConstraintError handled by errorHandler\n\n**Source:** `errorHandler.js` — catches unique constraint errors"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    }
+  ]
+}

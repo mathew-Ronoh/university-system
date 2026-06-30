@@ -1,3 +1,7 @@
+// Salary model — tracks monthly salary records for lecturers
+// Each lecturer has one salary entry per month per year (enforced by unique index)
+// Status: pending → partial → paid (tracked with paidAt and processedBy)
+
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -38,7 +42,7 @@ Salary.init(
     },
     processedBy: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: true,       // FK to User who marked it as paid
       field: 'processed_by',
     },
   },
@@ -47,7 +51,7 @@ Salary.init(
     modelName: 'Salary',
     tableName: 'salaries',
     indexes: [
-      { unique: true, fields: ['lecturer_id', 'month', 'year'] },
+      { unique: true, fields: ['lecturer_id', 'month', 'year'] }, // One salary per lecturer per period
     ],
   }
 );

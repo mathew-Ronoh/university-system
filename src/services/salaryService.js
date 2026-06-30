@@ -1,3 +1,6 @@
+// Salary service — manages lecturer salary records
+// Enforces one salary record per lecturer per month/year (unique constraint at DB + model level)
+
 const { Salary, User } = require('../models');
 
 const getLecturerSalaries = async (lecturerId) => {

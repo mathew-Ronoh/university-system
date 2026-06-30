@@ -1,5 +1,10 @@
+// User service — handles user creation with automatic student profile and fee setup
+// Business logic is centralized here rather than in controllers to keep them thin
+
 const { User, Student, Fee, Course, Semester } = require('../models');
 
+// Create a user, and if they're a student, also create their student profile
+// and automatically generate a fee record for the current semester
 const createUser = async (data) => {
   const user = await User.create(data);
 
@@ -11,6 +16,7 @@ const createUser = async (data) => {
       enrollmentDate: data.enrollmentDate || new Date(),
     });
 
+    // Auto-generate fee record based on the course's tuition fee
     if (data.courseId) {
       const course = await Course.findByPk(data.courseId);
       const currentSemester = await Semester.findOne({ where: { isCurrent: true } });

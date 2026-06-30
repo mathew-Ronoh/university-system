@@ -7,6 +7,7 @@ export default function Users() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ email: '', password: '', role: 'student', firstName: '', lastName: '', phone: '', admissionNo: '', courseId: '' });
   const [uploading, setUploading] = useState(null);
+  const [formError, setFormError] = useState('');
 
   const load = () => api.get('/admin/users').then(({ data }) => setUsers(data.users));
   const loadCourses = () => api.get('/admin/courses').then(({ data }) => setCourses(data.courses));
@@ -15,15 +16,20 @@ export default function Users() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
     const payload = { ...form };
     if (payload.role !== 'student') {
       delete payload.admissionNo;
       delete payload.courseId;
     }
-    await api.post('/admin/users', payload);
-    setShowForm(false);
-    setForm({ email: '', password: '', role: 'student', firstName: '', lastName: '', phone: '', admissionNo: '', courseId: '' });
-    load();
+    try {
+      await api.post('/admin/users', payload);
+      setShowForm(false);
+      setForm({ email: '', password: '', role: 'student', firstName: '', lastName: '', phone: '', admissionNo: '', courseId: '' });
+      load();
+    } catch (err) {
+      setFormError(err.response?.data?.error || err.response?.data?.details?.[0]?.message || 'Failed to create user.');
+    }
   };
 
   const toggleActive = async (id) => {
@@ -58,6 +64,10 @@ export default function Users() {
           {showForm ? 'Cancel' : '+ Add User'}
         </button>
       </div>
+
+      {formError && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded text-sm">{formError}</div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">

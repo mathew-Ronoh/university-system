@@ -1,3 +1,8 @@
+// Payment model — records every payment made by or for a student
+// Supports multiple payment methods: cash, bank transfer, M-Pesa, cheque, HELB
+// Tracks M-Pesa-specific fields for integration with Safaricom Daraja API
+// Each payment can optionally generate a receipt
+
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -12,7 +17,7 @@ Payment.init(
     },
     feeId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: false,    // Links this payment to a specific fee record
       field: 'fee_id',
     },
     amount: {
@@ -31,23 +36,24 @@ Payment.init(
     receiptNo: {
       type: DataTypes.STRING(50),
       allowNull: true,
-      unique: true,
+      unique: true,       // Each receipt number is globally unique
       field: 'receipt_no',
     },
     transactionCode: {
       type: DataTypes.STRING(100),
-      allowNull: true,
+      allowNull: true,     // Bank reference, M-Pesa transaction ID, etc.
       field: 'transaction_code',
     },
     processorId: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: true,     // The finance user who recorded this payment
       field: 'processor_id',
     },
     notes: {
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    // M-Pesa specific fields — populated during STK Push flow
     mpesaMerchantRequestId: {
       type: DataTypes.STRING(100),
       allowNull: true,

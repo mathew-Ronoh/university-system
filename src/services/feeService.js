@@ -1,3 +1,7 @@
+// Fee service — manages fee records, payments, receipts, and invoices
+// Uses database TRANSACTIONS to ensure financial data stays consistent
+// Critical operations (payments) either fully succeed or fully roll back
+
 const { Fee, Payment, Receipt, Invoice, Student, Semester } = require('../models');
 const sequelize = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
@@ -10,6 +14,7 @@ const getStudentFees = async (studentId) => {
   });
 };
 
+// Creates a fee record AND an invoice for the student simultaneously
 const createFee = async (studentId, data) => {
   const fee = await Fee.create({
     studentId,
@@ -35,9 +40,12 @@ const createFee = async (studentId, data) => {
   return fee;
 };
 
+// Record a manual payment in a TRANSACTION — creates payment, updates fee balance,
+// generates receipt, and marks invoice as paid if balance reaches zero
 const recordManualPayment = async (studentId, data, processorId) => {
   const transaction = await sequelize.transaction();
   try {
+    // Find the oldest unpaid fee record
     const fee = await Fee.findOne({
       where: { studentId, status: ['pending', 'partial'] },
       order: [['createdAt', 'ASC']],
@@ -66,6 +74,7 @@ const recordManualPayment = async (studentId, data, processorId) => {
       { transaction }
     );
 
+    // Update the fee's paid amount and balance
     const newPaid = parseFloat(fee.paidAmount) + parseFloat(data.amount);
     const newBalance = parseFloat(fee.totalFees) - newPaid;
 
@@ -87,6 +96,7 @@ const recordManualPayment = async (studentId, data, processorId) => {
       { transaction }
     );
 
+    // If fully paid, mark the invoice as paid too
     const invoice = await Invoice.findOne({
       where: { studentId, feeId: fee.id, status: 'issued' },
       transaction,

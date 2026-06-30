@@ -1,3 +1,6 @@
+// Student routes — all routes require student role
+// Middleware: authenticate → authorize(STUDENT) applied to everything via router.use()
+
 const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/studentController');

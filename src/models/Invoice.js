@@ -1,3 +1,7 @@
+// Invoice model — billing document issued to a student
+// An invoice is created when fees are set or when finance manually issues one
+// Tracks its own lifecycle: draft → issued → paid/cancelled/overdue
+
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -18,7 +22,7 @@ Invoice.init(
     invoiceNo: {
       type: DataTypes.STRING(50),
       allowNull: false,
-      unique: true,
+      unique: true,    // e.g., "INV-2026-A1B2C3D4"
       field: 'invoice_no',
     },
     amount: {

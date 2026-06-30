@@ -1,3 +1,6 @@
+// Joi validation schemas for authentication and user management
+// Each schema defines the expected shape, types, and constraints of request bodies
+
 const Joi = require('joi');
 
 const loginSchema = Joi.object({
@@ -5,6 +8,7 @@ const loginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
+// When role is 'student', admissionNo and courseId become required via .when()
 const createUserSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(8).required(),
@@ -23,7 +27,10 @@ const updateUserSchema = Joi.object({
   lastName: Joi.string().min(1).max(100).optional(),
   phone: Joi.string().max(20).optional().allow(''),
   isActive: Joi.boolean().optional(),
-}).min(1);
+}).min(1); // At least one field must be provided for an update
+
+// Schemas below are defined but not currently wired into any route
+// They exist as placeholders for future password management features
 
 const changePasswordSchema = Joi.object({
   currentPassword: Joi.string().required(),

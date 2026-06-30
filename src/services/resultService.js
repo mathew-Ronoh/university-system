@@ -1,3 +1,7 @@
+// Result service — manages academic results/grades for students
+// Handles single and bulk result entry with enrollment validation
+// calculateGrade() converts numerical marks to letter grades (Kenyan system)
+
 const { Result, Student, Unit, Semester, StudentUnit } = require('../models');
 const sequelize = require('../config/database');
 
@@ -15,9 +19,11 @@ const getUnitResults = async (unitId, semesterId) => {
   });
 };
 
+// Create or update a single result — verifies the student is enrolled first
 const upsertResult = async (data, enteredBy) => {
   const { studentId, unitId, semesterId, marks, grade } = data;
 
+  // Guard: can't enter a grade for a student who isn't enrolled in this unit
   const enrollment = await StudentUnit.findOne({
     where: { studentId, unitId, semesterId },
   });
@@ -40,6 +46,7 @@ const upsertResult = async (data, enteredBy) => {
   return { result, created };
 };
 
+// Bulk insert/update results in a TRANSACTION — all succeed or all roll back
 const bulkUpsertResults = async (unitId, semesterId, results, enteredBy) => {
   const transaction = await sequelize.transaction();
   try {
@@ -76,6 +83,7 @@ const bulkUpsertResults = async (unitId, semesterId, results, enteredBy) => {
   }
 };
 
+// Convert marks (0-100) to Kenyan university letter grades
 const calculateGrade = (marks) => {
   if (marks >= 70) return 'A';
   if (marks >= 60) return 'B+';

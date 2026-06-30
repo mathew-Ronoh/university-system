@@ -1,3 +1,7 @@
+// Centralized configuration — reads .env once and exports a structured config object
+// All other modules import this instead of reading process.env directly
+// This makes the code cleaner and gives a single source of truth for config values
+
 require('dotenv').config();
 
 const config = {

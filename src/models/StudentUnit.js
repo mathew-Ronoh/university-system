@@ -1,3 +1,8 @@
+// StudentUnit model — join table for many-to-many relationship between students and units
+// A student can be enrolled in many units per semester
+// A unit can have many students enrolled
+// The unique index prevents duplicate enrollments
+
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -28,7 +33,7 @@ StudentUnit.init(
     indexes: [
       {
         unique: true,
-        fields: ['student_id', 'unit_id', 'semester_id'],
+        fields: ['student_id', 'unit_id', 'semester_id'], // One enrollment per student per unit per semester
       },
     ],
   }

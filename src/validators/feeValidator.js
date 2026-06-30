@@ -1,11 +1,15 @@
+// Joi validation schemas for financial operations: fees, payments, M-Pesa, and invoices
+
 const Joi = require('joi');
 
+// Creating/updating a fee record for a student's semester
 const feeSchema = Joi.object({
   totalFees: Joi.number().positive().precision(2).required(),
   semesterId: Joi.number().integer().required(),
   dueDate: Joi.date().optional(),
 });
 
+// Manual payment (cash, bank transfer, cheque, etc.)
 const manualPaymentSchema = Joi.object({
   amount: Joi.number().positive().precision(2).required(),
   method: Joi.string()
@@ -16,6 +20,7 @@ const manualPaymentSchema = Joi.object({
   notes: Joi.string().optional().allow(''),
 });
 
+// M-Pesa STK Push payment — validates Kenyan Safaricom phone number format
 const mpesaPaymentSchema = Joi.object({
   amount: Joi.number().positive().precision(2).required(),
   phone: Joi.string()

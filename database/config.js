@@ -1,3 +1,7 @@
+// Database configuration for Sequelize CLI (migrations, seeders)
+// Also consumed by src/config/database.js for runtime connection
+// Three environments: development (your local machine), test (CI), production (live server)
+
 require('dotenv').config();
 
 module.exports = {
@@ -8,7 +12,7 @@ module.exports = {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT, 10) || 3306,
     dialect: 'mysql',
-    logging: false,
+    logging: false,  // Set to console.log to see raw SQL queries
   },
   test: {
     username: process.env.DB_USER || 'root',
@@ -27,11 +31,12 @@ module.exports = {
     port: parseInt(process.env.DB_PORT, 10) || 3306,
     dialect: 'mysql',
     logging: false,
+    // Connection pool for production — handles multiple concurrent requests efficiently
     pool: {
-      max: 10,
-      min: 2,
-      acquire: 30000,
-      idle: 10000,
+      max: 10,      // Maximum connections in the pool
+      min: 2,       // Minimum connections kept alive
+      acquire: 30000, // Max time (ms) to wait for a connection
+      idle: 10000,    // Max time (ms) a connection can be idle before release
     },
   },
 };

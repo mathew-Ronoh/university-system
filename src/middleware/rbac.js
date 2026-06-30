@@ -1,3 +1,10 @@
+// Role-Based Access Control (RBAC) middleware
+// After authentication confirms WHO you are, authorization checks WHAT you can do
+//
+// authorize(...roles): user must have EXACTLY one of the listed roles
+// authorizeMinRole(role): uses hierarchy to allow users at or above a minimum level
+//   hierarchy: student(0) < lecturer(1) < finance(2) < admin(3)
+
 const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {

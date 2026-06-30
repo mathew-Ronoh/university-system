@@ -1,3 +1,8 @@
+// Lecturer routes — all routes require lecturer role
+// Middleware: authenticate → authorize(LECTURER) applied via router.use()
+// Note: validators (resultSchema, bulkResultSchema) are imported but not used in routes
+//       — validation happens inside the controller instead
+
 const express = require('express');
 const router = express.Router();
 const lecturerController = require('../controllers/lecturerController');
@@ -15,6 +20,7 @@ router.get('/courses/:id/results', lecturerController.getUnitResults);
 router.put('/courses/:id/results', lecturerController.updateResults);
 router.post('/courses/:id/results/bulk', lecturerController.updateResults);
 
+// Lecturer can view their own salary
 const salaryController = require('../controllers/salaryController');
 router.get('/salary', salaryController.getMine);
 

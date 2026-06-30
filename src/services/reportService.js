@@ -1,3 +1,7 @@
+// Report service — generates PDF documents using PDFKit
+// Two reports: academic transcripts and payment receipts
+// Returns a PDFDocument stream that the controller pipes to the HTTP response
+
 const PDFDocument = require('pdfkit');
 const { Student, User, Course, Result, Unit, Semester, Fee, Payment } = require('../models');
 
@@ -10,6 +14,7 @@ const generateTranscript = async (studentId) => {
   });
   if (!student) throw { status: 404, message: 'Student not found.' };
 
+  // Fetch all results grouped by semester for structured display
   const results = await Result.findAll({
     where: { studentId },
     include: [
@@ -24,6 +29,7 @@ const generateTranscript = async (studentId) => {
 
   const doc = new PDFDocument({ margin: 50 });
 
+  // Header
   doc.fontSize(18).text('ACADEMIC TRANSCRIPT', { align: 'center' });
   doc.moveDown();
   doc.fontSize(12).text(`Student: ${student.user.firstName} ${student.user.lastName}`);
@@ -32,6 +38,7 @@ const generateTranscript = async (studentId) => {
   doc.text(`Generated: ${new Date().toLocaleDateString()}`);
   doc.moveDown();
 
+  // Group results by semester
   const semesterGroups = {};
   for (const r of results) {
     const semKey = r.semester.id;
@@ -41,6 +48,7 @@ const generateTranscript = async (studentId) => {
     semesterGroups[semKey].results.push(r);
   }
 
+  // Render each semester as a table
   for (const key of Object.keys(semesterGroups)) {
     const { semester, results: semResults } = semesterGroups[key];
     doc.fontSize(14).text(`${semester.name} (${semester.academicYear})`, { underline: true });

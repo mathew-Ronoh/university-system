@@ -1,3 +1,6 @@
+// Joi validation schemas for academic entities: courses, units, and semesters
+// These are used by admin routes when creating/updating academic records
+
 const Joi = require('joi');
 
 const courseSchema = Joi.object({
@@ -22,7 +25,7 @@ const semesterSchema = Joi.object({
   name: Joi.string().max(100).required(),
   academicYear: Joi.string().max(20).required(),
   startDate: Joi.date().required(),
-  endDate: Joi.date().greater(Joi.ref('startDate')).required(),
+  endDate: Joi.date().greater(Joi.ref('startDate')).required(), // endDate must be after startDate
   isCurrent: Joi.boolean().optional(),
 });
 

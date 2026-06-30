@@ -1,6 +1,10 @@
+// Creates and configures the Sequelize ORM instance
+// This single instance is shared across all models via require()
+
 const { Sequelize } = require('sequelize');
 const dbConfig = require('../../database/config');
 
+// Pick the right database config based on current environment
 const env = process.env.NODE_ENV || 'development';
 const config = dbConfig[env];
 
@@ -15,8 +19,8 @@ const sequelize = new Sequelize(
     logging: config.logging,
     pool: config.pool,
     define: {
-      timestamps: true,
-      underscored: true,
+      timestamps: true,    // Auto-add createdAt/updatedAt to every table
+      underscored: true,   // Use snake_case in DB (e.g., created_at) but camelCase in JS
     },
   }
 );

@@ -1,3 +1,7 @@
+// Joi validation schemas for academic results
+// Used by lecturer routes when entering grades
+// Validated: student must exist, marks 0-100, grade must be valid Kenyan grade
+
 const Joi = require('joi');
 
 const resultSchema = Joi.object({

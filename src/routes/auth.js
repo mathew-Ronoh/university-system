@@ -1,3 +1,6 @@
+// Authentication routes — no auth middleware on login/refresh (they're public)
+// Only /me and /logout require a valid JWT token via authenticate middleware
+
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');

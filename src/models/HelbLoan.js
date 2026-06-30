@@ -1,3 +1,7 @@
+// HelbLoan model — tracks government student loans from HELB (Higher Education Loans Board)
+// Each loan has a total amount, disbursed amount (what's been paid out so far),
+// and remaining balance. Status tracks repayment: active, completed, or defaulted.
+
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
