@@ -1,0 +1,119 @@
+# GitHub Actions Workflow for Railway Frontend Deployment
+# Place in: .github/workflows/railway-frontend.yml
+
+name: Deploy Frontend to Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'railway.json'
+      - '.railwayignore'
+      - 'nixpacks.toml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'railway.json'
+      - '.railwayignore'
+      - 'nixpacks.toml'
+
+env:
+  RAILWAY_SERVICE_NAME: university-frontend
+
+jobs:
+  test:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          NODE_ENV: production
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+
+  deploy:
+    name: Deploy to Railway
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Login to Railway
+        run: railway login --token ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Link Railway project
+        run: railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+
+      - name: Deploy to Railway
+        run: |
+          railway up --service ${{ env.RAILWAY_SERVICE_NAME }} \
+            --detach \
+            --wait-for-healthcheck
+
+      - name: Verify deployment
+        run: |
+          sleep 10
+          curl -f https://${{ env.RAILWAY_SERVICE_NAME }}.up.railway.app || exit 1
+
+  notify:
+    name: Notify Deployment Status
+    needs: [test, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "Frontend deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Frontend Deployment ${{ job.status }}*\\nRepository: ${{ github.repository }}\\nBranch: ${{ github.ref_name }}\\nCommit: ${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Create deployment record
+        if: success()
+        uses: chrnorm/deployment-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          environment: production
+          environment-url: https://${{ env.RAILWAY_SERVICE_NAME }}.up.railway.app

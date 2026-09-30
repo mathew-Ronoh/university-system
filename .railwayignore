@@ -1,0 +1,47 @@
+# Railway ignore file - excludes backend/server code from deployment
+# Only frontend/ folder will be deployed
+
+# Backend source code
+src/
+server.js
+package.json
+package-lock.json
+.sequelizerc
+.env.example
+yaak-collection.json
+
+# Database folder
+database/
+
+# Mobile app (React Native - deploy separately via Expo/EAS)
+mobile/
+
+# Node modules (will be installed fresh)
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+
+# Build outputs (except frontend/dist which we want)
+dist/
+build/
+*.tsbuildinfo

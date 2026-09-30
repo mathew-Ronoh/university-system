@@ -1,0 +1,14 @@
+# Railway Nixpacks configuration for frontend-only deployment
+# This goes in the frontend/ folder
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "npm"]
+
+[phases.install]
+cmds = ["cd frontend && npm ci"]
+
+[phases.build]
+cmds = ["cd frontend && npm run build"]
+
+[start]
+cmd = "cd frontend && npx serve -s dist -l $PORT"
