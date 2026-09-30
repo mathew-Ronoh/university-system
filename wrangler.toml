@@ -1,24 +1,23 @@
 # Cloudflare Pages Configuration
-# Place in repository root: wrangler.toml
-# This is optional - you can configure everything in the Cloudflare dashboard instead
+# This file is for reference - actual deployment is via Cloudflare Pages Dashboard
+# or the GitHub Actions workflow (.github/workflows/cloudflare-pages.yml)
 
 name = "university-frontend"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = "frontend/dist"
 
-# Build configuration (optional - can be set in dashboard)
+# Build configuration (set in Cloudflare Pages Dashboard)
 [build]
 command = "cd frontend && npm ci && npm run build"
 watch_dir = "frontend"
 
-# Environment variables (set these in Cloudflare Pages dashboard instead for security)
+# Environment variables - SET IN CLOUDFLARE PAGES DASHBOARD (not here!)
 # [vars]
+# NODE_VERSION = "20"
 # VITE_API_BASE_URL = "https://your-backend-api.com/api"
 # VITE_APP_NAME = "University System"
 # VITE_ENABLE_MPESA = "true"
 # VITE_ENABLE_HELB = "true"
 
-# Custom domain (configure in dashboard after first deploy)
-# [[routes]]
-# pattern = "university-system.yourdomain.com/*"
-# zone_name = "yourdomain.com"
+# For Pages deployment, use: npx wrangler pages deploy frontend/dist
+# NOT: npx wrangler deploy

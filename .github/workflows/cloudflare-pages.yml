@@ -5,14 +5,14 @@ name: Deploy Frontend to Cloudflare Pages
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'frontend/**'
       - 'wrangler.toml'
       - 'package.json'
       - 'package-lock.json'
   pull_request:
-    branches: [main]
+    branches: [master]
     paths:
       - 'frontend/**'
       - 'wrangler.toml'
@@ -84,9 +84,9 @@ jobs:
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
   deploy-production:
-    name: Deploy Production (Main Branch)
+    name: Deploy Production (Master Branch)
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
     steps:
